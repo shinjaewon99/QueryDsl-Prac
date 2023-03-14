@@ -239,4 +239,92 @@ class QuerydslBasicTest {
 
     }
 
+    /**
+     * 팀 A에 소속된 모든 멤버
+     */
+    @Test
+    public void join(){
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                // team = Qteam.team
+                .join(member.team, team)
+                .where(team.name.eq("teamA"))
+                .fetch();
+
+        assertThat(result)
+                // .extracting = 필요한 데이터만 추출하여 테스트
+                .extracting("username")
+                // .containsExactly = list의 값과 values의 순서대로 list에 있는지 테스트
+                .containsExactly("member1", "member2");
+    }
+
+
+    /**
+     * 세타 조인 (연관관계가 되어있지않아도 조인가능)
+     * 회원의 이름이 팀 이름과 같은 회원 조회
+     */
+    @Test
+    public void theta_join(){
+        // 멤버 이름이 teamA, 팀 이름도 teamA
+        em.persist(new Member("teamA"));
+        em.persist(new Member("teamB"));
+        em.persist(new Member("teamC"));
+
+        List<Member> result = queryFactory
+                .select(member)
+                .from(member, team)
+                .where(member.username.eq(team.name))
+                .fetch();
+
+        assertThat(result)
+                .extracting("username")
+                .containsExactly("teamA", "teamB");
+    }
+
+
+    /**
+     * 예) 회원과 팀을 조인하면서, 팀 이름이 teamA인 팀만 조회, 회원은 모두 조회 (outer 조인)
+     * JPQL : "select m, t from Member m left join m.team t on t.name = 'teamA'"
+     */
+    @Test
+    public void join_on_filtering(){
+        // Tuple로 반환되는 이유는 select문에서 값이 2개 이상임으로
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                // member 테이블은 다 가져오고 (left join), team 테이블은 teamA만 걸러서 가져온다.
+                .leftJoin(member.team, team).on(team.name.eq("teamA"))
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+
+        }
+
+    }
+
+
+    /**
+     * 연관관계가 없는 엔티티 외부조인
+     * 회원의 이름이 팀 이름과 같은 대상을 외부 조인
+     */
+    @Test
+    public void join_on_no_relation(){
+        // 멤버 이름이 teamA, 팀 이름도 teamA
+        em.persist(new Member("teamA"));
+        em.persist(new Member("teamB"));
+        em.persist(new Member("teamC"));
+
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(team).on(member.username.eq(team.name))
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+        }
+    }
+
+
 }
